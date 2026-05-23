@@ -16,5 +16,6 @@ streamlit>=1.30.0
 # LLM Integration
 ollama>=0.2.0
 
-# Code Quality (Dev)
-ruff>=0.1.0
+# Testing & Code Quality
+pytest>=8.0.0
+ruff==0.15.14
