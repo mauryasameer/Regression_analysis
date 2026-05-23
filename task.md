@@ -18,10 +18,10 @@
   - `[x]` Create `src/services/mrm_service.py` (VIF, heteroscedasticity, normality, and stability audits)
   - `[x]` Create `src/services/explanation_service.py` (Orchestrates predictions, SHAP calculation, and LLM queries)
 
-- `[ ]` Phase 4: Research & Notebook Modernization
-  - `[ ]` Move `Regression_Analysis.ipynb` to `notebooks/`
-  - `[ ]` Refactor notebook to use ML pipelines, log target regressor, and SHAP
-  - `[ ]` Export the trained pipeline and SHAP explainer to `src/data/model_pipeline.joblib`
+- `[x]` Phase 4: Research & Notebook Modernization
+  - `[x]` Move `Regression_Analysis.ipynb` to `notebooks/`
+  - `[x]` Refactor notebook to use ML pipelines, log target regressor, and SHAP
+  - `[x]` Export the trained pipeline and SHAP explainer to `src/data/model_pipeline.joblib`
 
 - `[ ]` Phase 5: Streamlit Web Application
   - `[ ]` Create root-level `app.py` (interactive predictor, SHAP waterfall plot, AI narrative explainers, MRM diagnostics dashboard)
