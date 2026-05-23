@@ -1,20 +1,22 @@
-import sys
 import os
+import sys
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import logging
+
 import joblib
 import numpy as np
 import pandas as pd
 import shap
-from sklearn.linear_model import LassoCV
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import Pipeline
 from sklearn.compose import TransformedTargetRegressor
-from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LassoCV
 from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
-from src.utils.preprocessing import HouseFeatureDeriver, AligningDummifier, FeatureSelector
+from src.utils.preprocessing import AligningDummifier, FeatureSelector, HouseFeatureDeriver
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -22,17 +24,17 @@ logger = logging.getLogger(__name__)
 
 # List of 55 features selected by RFE in the original research
 SELECTED_FEATURES = [
-    'MSSubClass', 'LotArea', 'OverallQual', 'OverallCond', 'BsmtFinSF1', 'BsmtUnfSF', 'TotalBsmtSF', 
-    'GrLivArea', 'GarageCars', 'OpenPorchSF', 'NeworOldGarage', 'Remodelled', 'BuiltRemodelAge', 
-    'd_BsmtQual', 'd_HeatingQC', 'd_KitchenQual', 'd_FireplaceQu', 'd_HouseStyle', 'd_SaleCondition', 
-    'MSZoning_FV', 'MSZoning_RH', 'MSZoning_RL', 'MSZoning_RM', 'Neighborhood_BrDale', 'Neighborhood_BrkSide', 
-    'Neighborhood_CollgCr', 'Neighborhood_Edwards', 'Neighborhood_Gilbert', 'Neighborhood_IDOTRR', 
-    'Neighborhood_MeadowV', 'Neighborhood_Mitchel', 'Neighborhood_NAmes', 'Neighborhood_NWAmes', 
-    'Neighborhood_OldTown', 'Neighborhood_SWISU', 'Neighborhood_Sawyer', 'Neighborhood_SawyerW', 
-    'Neighborhood_Somerst', 'Neighborhood_Timber', 'Exterior1st_CBlock', 'Exterior1st_CemntBd', 
-    'Exterior1st_Plywood', 'Exterior1st_VinylSd', 'Exterior1st_Wd Sdng', 'Exterior2nd_CBlock', 
-    'Exterior2nd_CmentBd', 'Exterior2nd_Other', 'Exterior2nd_VinylSd', 'Exterior2nd_Wd Sdng', 
-    'Foundation_CBlock', 'Foundation_PConc', 'Foundation_Slab', 'GarageType_Attchd', 'GarageType_BuiltIn', 
+    'MSSubClass', 'LotArea', 'OverallQual', 'OverallCond', 'BsmtFinSF1', 'BsmtUnfSF', 'TotalBsmtSF',
+    'GrLivArea', 'GarageCars', 'OpenPorchSF', 'NeworOldGarage', 'Remodelled', 'BuiltRemodelAge',
+    'd_BsmtQual', 'd_HeatingQC', 'd_KitchenQual', 'd_FireplaceQu', 'd_HouseStyle', 'd_SaleCondition',
+    'MSZoning_FV', 'MSZoning_RH', 'MSZoning_RL', 'MSZoning_RM', 'Neighborhood_BrDale', 'Neighborhood_BrkSide',
+    'Neighborhood_CollgCr', 'Neighborhood_Edwards', 'Neighborhood_Gilbert', 'Neighborhood_IDOTRR',
+    'Neighborhood_MeadowV', 'Neighborhood_Mitchel', 'Neighborhood_NAmes', 'Neighborhood_NWAmes',
+    'Neighborhood_OldTown', 'Neighborhood_SWISU', 'Neighborhood_Sawyer', 'Neighborhood_SawyerW',
+    'Neighborhood_Somerst', 'Neighborhood_Timber', 'Exterior1st_CBlock', 'Exterior1st_CemntBd',
+    'Exterior1st_Plywood', 'Exterior1st_VinylSd', 'Exterior1st_Wd Sdng', 'Exterior2nd_CBlock',
+    'Exterior2nd_CmentBd', 'Exterior2nd_Other', 'Exterior2nd_VinylSd', 'Exterior2nd_Wd Sdng',
+    'Foundation_CBlock', 'Foundation_PConc', 'Foundation_Slab', 'GarageType_Attchd', 'GarageType_BuiltIn',
     'GarageType_Detchd'
 ]
 
@@ -92,7 +94,7 @@ def main():
     # List of alphas from notebook grid search
     alphas = [0.0001, 0.001, 0.0002, 0.0003, 0.0004, 0.0005, 0.01, 0.1, 1.0, 10.0]
     lasso_cv = LassoCV(alphas=alphas, cv=5, random_state=42)
-    
+
     # Wrap regressor in TransformedTargetRegressor to automatically handle target log transformations
     regressor = TransformedTargetRegressor(
         regressor=lasso_cv,
@@ -102,7 +104,7 @@ def main():
 
     logger.info("Fitting target-transformed Lasso regression model...")
     regressor.fit(X_train_prep, y_train)
-    
+
     best_alpha = regressor.regressor_.alpha_
     logger.info("Optimal alpha selected by CV: %s", best_alpha)
 
@@ -125,7 +127,7 @@ def main():
     # Wrap in a standard linear model format for SHAP
     # Since TransformedTargetRegressor wraps the regressor, we extract the underlying fitted Lasso model
     fitted_lasso = regressor.regressor_
-    
+
     # We pass the fitted model and background training data to calculate attributions on the log scale
     explainer = shap.LinearExplainer(fitted_lasso, X_train_prep)
 
@@ -140,7 +142,7 @@ def main():
     logger.info("Saving trained pipeline and SHAP explainer artifacts...")
     joblib.dump(final_pipeline, "src/data/model_pipeline.joblib")
     joblib.dump(explainer, "src/data/shap_explainer.joblib")
-    
+
     # Also save training metadata for evaluation in app
     metadata = {
         "train_r2": float(train_r2),
@@ -154,7 +156,7 @@ def main():
         "features": SELECTED_FEATURES
     }
     joblib.dump(metadata, "src/data/model_metadata.joblib")
-    
+
     logger.info("Training pipeline and serialization complete!")
 
 if __name__ == "__main__":

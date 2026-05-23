@@ -1,20 +1,21 @@
-import sys
 import os
+import sys
+
 import joblib
-import pandas as pd
-import numpy as np
-import streamlit as st
-import shap
 import matplotlib.pyplot as plt
-import io
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import shap
+import streamlit as st
 
 # Configure path to import from src/
 sys.path.append(os.path.dirname(__file__))
 
 from src.providers.ollama_provider import OllamaProvider
 from src.services.explanation_service import ExplanationService
-from src.services.mrm_service import calculate_vif, run_residual_diagnostics, audit_model_stability
-from src.utils.security import sanitize_numerical_input, sanitize_categorical_input, detect_prompt_injection
+from src.services.mrm_service import audit_model_stability, calculate_vif, run_residual_diagnostics
+from src.utils.security import detect_prompt_injection, sanitize_categorical_input, sanitize_numerical_input
 
 # Page Configuration
 st.set_page_config(
@@ -146,33 +147,33 @@ st.markdown("<div class='sub-header'>Modernized Ridge/Lasso Housing Valuation En
 
 if assets_loaded:
     tab1, tab2 = st.tabs(["🏠 House Price Predictor & Explainer", "📊 Model Risk & Validation Audit (MRM)"])
-    
+
     with tab1:
         st.write("Adjust house features below to generate an instant prediction, local SHAP explanation, and LLM audit report.")
-        
+
         # User input fields split into columns
         col1, col2, col3 = st.columns(3)
-        
+
         with col1:
             st.markdown("##### 📏 Dimensions & Quality")
             overall_qual = st.slider("Overall Quality (1-10)", 1, 10, 6)
             overall_cond = st.slider("Overall Condition (1-10)", 1, 10, 5)
             lot_area = st.number_input("Lot Area (sq ft)", min_value=100, max_value=200000, value=9500)
             gr_liv_area = st.number_input("Above Ground Living Area (sq ft)", min_value=100, max_value=10000, value=1500)
-            
+
         with col2:
             st.markdown("##### 🧱 Basements & Garages")
             total_bsmt_sf = st.number_input("Total Basement Area (sq ft)", min_value=0, max_value=5000, value=900)
             bsmt_fin_sf1 = st.number_input("Finished Basement Area (sq ft)", min_value=0, max_value=3000, value=400)
             garage_cars = st.slider("Garage Car Capacity", 0, 5, 2)
             open_porch_sf = st.number_input("Open Porch Area (sq ft)", min_value=0, max_value=1000, value=40)
-            
+
         with col3:
             st.markdown("##### 🏘️ Neighborhood & Architecture")
             neighborhood = st.selectbox("Neighborhood", allowed_neighborhood)
             ms_zoning = st.selectbox("MS Zoning Type", allowed_mszoning)
             garage_type = st.selectbox("Garage Location/Type", allowed_garagetype)
-            
+
             # Simple inputs to derive remodel / built dates
             year_built = st.number_input("Year Built", min_value=1800, max_value=2026, value=1970)
             year_remod = st.number_input("Year Remodelled (set equal to Built if none)", min_value=1800, max_value=2026, value=1970)
@@ -187,7 +188,7 @@ if assets_loaded:
         if st.button("🔍 Generate Comprehensive Valuation & Audit", type="primary"):
             # Cybersecurity Step 1: Input Sanitization
             log_security("Inference triggered. Starting input validation...")
-            
+
             # Sanitize numerical inputs
             s_overall_qual = sanitize_numerical_input(overall_qual, 1, 10)
             s_overall_cond = sanitize_numerical_input(overall_cond, 1, 10)
@@ -200,15 +201,15 @@ if assets_loaded:
             s_year_built = sanitize_numerical_input(year_built, 1800, 2026)
             s_year_remod = sanitize_numerical_input(year_remod, 1800, 2026)
             s_garage_yr = sanitize_numerical_input(garage_yr, 0, 2026)
-            
+
             # Sanitize categorical inputs
             s_neighborhood = sanitize_categorical_input(neighborhood, allowed_neighborhood)
             s_ms_zoning = sanitize_categorical_input(ms_zoning, allowed_mszoning)
             s_garage_type = sanitize_categorical_input(garage_type, allowed_garagetype)
-            
+
             log_security("Numerical features sanitized to valid numeric ranges.")
             log_security(f"Categorical features whitelisting passed for: Neighborhood={s_neighborhood}, MSZoning={s_ms_zoning}.")
-            
+
             # Reconstruct raw input DataFrame (pipeline expects same columns as train.csv)
             raw_input = pd.DataFrame([{
                 "MSSubClass": 20,  # Default standard values
@@ -249,30 +250,30 @@ if assets_loaded:
                 "Foundation": "PConc",
                 "GarageType": s_garage_type
             }])
-            
+
             # Predict price using pipeline
             # pipeline automatically runs preprocessing, scaling and prediction (log-transformed target)
             pred_price = pipeline.predict(raw_input)[0]
-            
+
             # Compute SHAP attributions locally
             # We transform raw data up to scaling step to match SHAP linear background expectation
             prep_pipe = pipeline.named_steps['prep']
             X_prep = prep_pipe.transform(raw_input)
-            
+
             # SHAP attributions (on log scale)
             shap_output = explainer(X_prep)
-            
+
             # Standardize SHAP values to actual dollars for user readability
             # Let: y_pred = pipeline_pred.
             # SHAP base value represents y_mean on log scale.
             # We can approximate dollar impacts by scaling the log-attributions
             base_log_val = explainer.expected_value
             y_log_pred = pipeline.named_steps['model'].regressor_.predict(X_prep)[0]
-            
+
             # Compute multiplier for conversion
             total_log_diff = y_log_pred - base_log_val
             total_dollar_diff = pred_price - np.expm1(base_log_val)
-            
+
             shap_dollar_impacts = {}
             for col_idx, col_name in enumerate(metadata["features"]):
                 log_impact = shap_output.values[0][col_idx]
@@ -282,18 +283,18 @@ if assets_loaded:
                 else:
                     dollar_impact = 0.0
                 shap_dollar_impacts[col_name] = dollar_impact
-                
+
             # Layout predictions
             st.markdown("#### 🏁 Results")
             pcol1, pcol2 = st.columns([1, 1])
-            
+
             with pcol1:
                 st.markdown("<div class='card'>", unsafe_allow_html=True)
                 st.markdown("##### Predicted Market Valuation")
                 st.markdown(f"<div class='metric-value'>${pred_price:,.2f}</div>", unsafe_allow_html=True)
                 st.markdown("Model: Target-Transformed Lasso Regularization (v1.0.0)")
                 st.markdown("</div>", unsafe_allow_html=True)
-                
+
                 # Plot SHAP Waterfall locally
                 st.markdown("##### Feature Attribution (SHAP Waterfall)")
                 fig, ax = plt.subplots(figsize=(8, 4.5))
@@ -309,11 +310,11 @@ if assets_loaded:
                 plt.title("Attribution of Features to Base Price ($)", fontsize=11, pad=10)
                 plt.tight_layout()
                 st.pyplot(fig)
-                
+
             with pcol2:
                 # LLM narrative explanation
                 st.markdown("##### 🤖 Local AI Narrative Auditor")
-                
+
                 # Check for prompt injection in user text query
                 user_context = ""
                 if user_text_query.strip():
@@ -325,7 +326,7 @@ if assets_loaded:
                     else:
                         log_security("User query passed prompt injection safety check.")
                         user_context = f"\nUser asks additional question: {user_text_query}"
-                
+
                 # Generate explanation using local LLM
                 with st.spinner("Llama 3.1 generating secure audit explanation..."):
                     narrative = explanation_service.generate_narrative(pred_price, shap_dollar_impacts)
@@ -339,29 +340,29 @@ if assets_loaded:
                         )
                         custom_response = explanation_service.llm_provider.generate_explanation(custom_prompt)
                         narrative += f"\n\n**Response to your query:**\n{custom_response}"
-                
+
                 st.markdown(narrative)
                 st.info("💡 **Local Privacy Guarantee**: This explanation was processed entirely on your M2 Air. No data was transmitted to external servers.")
-                
+
             # Show live security logs if toggled
             if show_security_logs:
                 st.markdown("---")
                 st.markdown("##### 🛡️ Cybersecurity Telemetry Log")
                 for log in security_logs:
                     st.text(f"[OK] {log}")
-                    
+
     with tab2:
         st.markdown("### Model Risk Management (MRM) Audit Control Room")
         st.write("This audit panel displays statistical diagnostic checks required by regulatory standards (e.g. SR 11-7) to monitor model specification risks.")
-        
+
         mrm_col1, mrm_col2 = st.columns(2)
-        
+
         with mrm_col1:
             st.markdown("##### 📈 Residual Diagnostics & Assumption Checks")
             # Calculate residual diagnostics on test metadata
             y_test_pred = pipeline.named_steps['model'].predict(metadata["X_test_prep"])
             res_diagnostics = run_residual_diagnostics(metadata["y_test"], y_test_pred, metadata["X_test_prep"])
-            
+
             # Plot Residual Distribution
             residuals = metadata["y_test"] - y_test_pred
             fig, ax = plt.subplots(figsize=(8, 4.5))
@@ -371,14 +372,14 @@ if assets_loaded:
             plt.xlabel("Residual Value (Log Scale)")
             plt.tight_layout()
             st.pyplot(fig)
-            
+
             # Test Metrics Table
             st.markdown("###### Statistical Tests Summary")
-            
+
             dw = res_diagnostics["durbin_watson"]
             jb = res_diagnostics["jarque_bera"]
             bp = res_diagnostics["breusch_pagan"]
-            
+
             st.markdown(f"""
             | Test | Metric Name | Statistic | Result Status |
             | :--- | :--- | :--- | :--- |
@@ -386,25 +387,25 @@ if assets_loaded:
             | **Jarque-Bera** | Error Normality | {jb['statistic']:.2f} (p={jb['p_value']:.4f}) | <span class="fail-tag">{jb['status']}</span> |
             | **Breusch-Pagan** | Homoscedasticity | {bp['statistic']:.2f} (p={bp['p_value']:.4f}) | <span class="pass-tag">{bp['status']}</span> |
             """, unsafe_allow_html=True)
-            
+
             st.caption("Normality check fails slightly because real housing data contains extreme upper-tail outliers, which is standard in real estate markets. Regulators recommend robust scaling or tree-based model comparison.")
-            
+
         with mrm_col2:
             st.markdown("##### 🏛️ Collinearity & Model Stability Audit")
-            
+
             # Stability audit
             stability = audit_model_stability(
                 metadata["train_r2"], metadata["test_r2"],
                 metadata["train_mse"], metadata["test_mse"]
             )
-            
+
             st.markdown("<div class='card'>", unsafe_allow_html=True)
             st.markdown("###### Overfitting & Stability Risk Report")
             st.markdown(f"**Model Health Status**: `{stability['status']}`")
             st.markdown(f"**Risk Level**: `{stability['risk_level']}`")
             st.markdown(f"**Train-Test R2 Gap**: `{stability['r2_difference']:.4f}`")
             st.markdown(f"**MSE Test Increase**: `{stability['mse_pct_increase']:.2f}%`")
-            
+
             if stability["recommendations"]:
                 st.markdown("**Actionable Governance Recommendations:**")
                 for rec in stability["recommendations"]:
@@ -412,7 +413,7 @@ if assets_loaded:
             else:
                 st.markdown("🟢 **Model stable**: No significant signs of overfitting detected.")
             st.markdown("</div>", unsafe_allow_html=True)
-            
+
             # VIF Multicollinearity Table
             st.markdown("###### Top Multicollinearity Factors (VIF Analysis)")
             X_train_prep = pd.DataFrame(metadata["X_train_prep"], columns=metadata["features"])

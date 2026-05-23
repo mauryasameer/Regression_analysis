@@ -1,5 +1,7 @@
 import logging
+
 import ollama
+
 from src.core.interfaces import LLMProvider
 
 logger = logging.getLogger(__name__)
