@@ -13,19 +13,22 @@ jobs:
   test:
     name: Run Pytest Suite
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
           cache: pip
 
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -r requirements-dev.txt
+          pip install -r requirements.txt
 
       - name: Run unit tests
         run: pytest tests/unit/ -v --tb=short
@@ -42,11 +45,11 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: pip
 
       - name: Install ruff
-        run: pip install ruff>=0.1.0
+        run: pip install ruff==0.15.14
 
       - name: Run ruff
         run: ruff check .
