@@ -26,6 +26,8 @@ class HouseFeatureDeriver(BaseEstimator, TransformerMixin):
         for col in ["LotFrontage", "MasVnrArea"]:
             if col in X.columns:
                 fill_val = self.medians_.get(col, 0.0)
+                if pd.isna(fill_val):
+                    fill_val = 0.0
                 X[col] = X[col].fillna(fill_val)
 
         # 2. Fill categorical NaNs
