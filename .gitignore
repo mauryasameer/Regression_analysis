@@ -1,1 +1,22 @@
+# Environments
+venv/
+.venv/
+env/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# OS generated files
+.DS_Store
+
+# IDEs
+.idea/
+.vscode/
+
+# Jupyter Notebook
 .ipynb_checkpoints
+
+# Runtime data (serialized pipelines, metadata — never committed)
+src/data/
