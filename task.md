@@ -23,12 +23,12 @@
   - `[x]` Refactor notebook to use ML pipelines, log target regressor, and SHAP
   - `[x]` Export the trained pipeline and SHAP explainer to `src/data/model_pipeline.joblib`
 
-- `[ ]` Phase 5: Streamlit Web Application
-  - `[ ]` Create root-level `app.py` (interactive predictor, SHAP waterfall plot, AI narrative explainers, MRM diagnostics dashboard)
+- `[x]` Phase 5: Streamlit Web Application
+  - `[x]` Create root-level `app.py` (interactive predictor, SHAP waterfall plot, AI narrative explainers, MRM diagnostics dashboard)
 
-- `[ ]` Phase 6: Marketing & Documentation
-  - `[ ]` Draft `UPDATED_BLOG_POST.md` (Medium article detailing Pipelines, MRM, and local LLM privacy)
-  - `[ ]` Draft `LINKEDIN_POST.md` (Catchy post highlighting cybersecurity, privacy, and statistical rigor)
+- `[x]` Phase 6: Marketing & Documentation
+  - `[x]` Draft `UPDATED_BLOG_POST.md` (Medium article detailing Pipelines, MRM, and local LLM privacy)
+  - `[x]` Draft `LINKEDIN_POST.md` (Catchy post highlighting cybersecurity, privacy, and statistical rigor)
 
 - `[ ]` Phase 7: Verification & Linting
   - `[ ]` Run code validation and ruff check
