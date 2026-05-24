@@ -7,7 +7,9 @@
 
 ## Overview
 
-Extend the existing Real Estate ML Portal to support Delhi NCR flat price prediction alongside the existing Ames, Iowa model. Phase 1 covers flats only across five NCR regions: Gurgaon, Noida, Delhi, Faridabad, Ghaziabad. Gurgaon and Noida ship first with trained models; remaining regions unlock as data and models become available.
+Extend the existing Real Estate ML Portal to support Delhi NCR flat price prediction and rent estimation alongside the existing Ames, Iowa model. Phase 1 covers flats only across five NCR regions: Gurgaon, Noida, Delhi, Faridabad, Ghaziabad. Gurgaon, Noida, and Delhi ship first with trained models; Faridabad and Ghaziabad unlock as data becomes available.
+
+Each region supports two prediction modes — **Buy** (sale price in INR) and **Rent** (monthly rent in INR) — using separate trained models per region per mode.
 
 ---
 
@@ -39,9 +41,12 @@ src/data/delhi_ncr/           # gitignored — raw CSVs and training data only
   {region}.csv
 
 models/delhi_ncr/             # tracked — committed .joblib artifacts (safe to commit, no PII)
-  model_{region}.joblib
-  metadata_{region}.joblib
-  shap_{region}.joblib
+  model_{region}_sale.joblib
+  model_{region}_rent.joblib
+  metadata_{region}_sale.joblib
+  metadata_{region}_rent.joblib
+  shap_{region}_sale.joblib
+  shap_{region}_rent.joblib
 
 .github/workflows/
   delhi_data_refresh.yml      # monthly cron: scrape → retrain → commit
@@ -73,8 +78,8 @@ regions:
   - name: Delhi
     lat: 28.6139
     lng: 77.2090
-    model_ready: false
-    localities: []
+    model_ready: true
+    localities: [Dwarka, Rohini, Saket, Vasant Kunj, Lajpat Nagar, Janakpuri]
   - name: Faridabad
     lat: 28.4089
     lng: 77.3178
@@ -126,9 +131,11 @@ Steps:
 | `lift` | bool | |
 | `metro_dist_km` | float | Distance to nearest metro station |
 
-**Target:** `price_inr` — log-transformed (`np.log1p`), same as Ames model.
+**Targets:**
+- `price_inr` — sale price, log-transformed (`np.log1p`)
+- `rent_inr` — monthly rent, log-transformed (`np.log1p`)
 
-**Model:** LassoCV with 5-fold CV, wrapped in `TransformedTargetRegressor`. One model per region.
+Two separate LassoCV models per region (one for sale, one for rent), each wrapped in `TransformedTargetRegressor`. Training data sourced separately for each mode from the Kaggle dataset and scraper.
 
 ---
 
@@ -142,7 +149,7 @@ Three-panel layout within the Delhi NCR tab:
 |---|---|
 | Left sidebar (150px) | Region list — green dot = model ready, grey = coming soon. Click to select. |
 | Centre | Leaflet map (CartoDB dark tiles). Green pins = ready, grey = coming soon. Click pin → popup with "Select region" button. Selecting a region flies the map to that region. |
-| Right form (240px) | Prediction form — region badge, BHK, area, floor, total floors, locality dropdown (updates per region), age, furnishing, parking toggle, lift toggle, metro distance. Predict button → shows estimated price in INR with confidence range. SHAP waterfall below. |
+| Right form (240px) | **Buy / Rent toggle** at top. Prediction form — region badge, BHK, area, floor, total floors, locality dropdown (updates per region), age, furnishing, parking toggle, lift toggle, metro distance. Predict button → shows estimated sale price or monthly rent in INR with confidence range. SHAP waterfall below. |
 
 Region availability on map and sidebar driven entirely by `configs/delhi_ncr_regions.yaml`.
 
@@ -190,6 +197,5 @@ All tests follow existing project standards: `pytest-mock` for patching, assert 
 ## Out of Scope (Phase 1)
 
 - Property types other than flats (builder floors, villas, plots)
-- Rental price prediction
 - Historical price trend charts
 - User accounts or saved predictions
