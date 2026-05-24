@@ -33,3 +33,22 @@
 - `[x]` Phase 7: Verification & Linting
   - `[x]` Run code validation and ruff check
   - `[x]` Verify Streamlit app function and safety gates
+
+- `[x]` Phase 8: Repository Standards Fixes (v1.0.1)
+  - `[x]` Pin ruff to `==0.15.14` in `requirements.txt` and CI
+  - `[x]` Add Python 3.12 to CI test matrix
+  - `[x]` Consolidate `requirements-dev.txt` into `requirements.txt`
+  - `[x]` Remove committed raw data files (`train.csv`, `bck.png`); update `.gitignore`
+  - `[x]` Fix `statsmodels` import path in `mrm_service.py`
+
+- `[x]` Phase 9: Delhi NCR Extension (v1.1.0)
+  - `[x]` Add `configs/delhi_ncr_regions.yaml` (5 regions, model_ready flags, localities)
+  - `[x]` Add `src/utils/delhi_preprocessing.py` (`DelhiFeatureTransformer`, `DelhiColumnFinalizer`)
+  - `[x]` Add `src/services/delhi_mrm_service.py` (thin MRM re-export)
+  - `[x]` Add `scripts/train_delhi_ncr.py` (LassoCV sale + rent per region, `--only-updated` flag)
+  - `[x]` Add `scripts/scrape_delhi_ncr.py` (99acres scraper, sha256 deduplication)
+  - `[x]` Add `models/delhi_ncr/` tracked directory for `.joblib` artifacts
+  - `[x]` Add `.github/workflows/delhi_data_refresh.yml` (monthly cron, auto-PR, failure issue)
+  - `[x]` Extend `app.py` with Streamlit tab switcher and full Layout C Delhi NCR UI (sidebar + Folium map + Buy/Rent form + SHAP + MRM)
+  - `[x]` Unit tests: `test_delhi_preprocessing.py` (5), `test_scraper.py` (4)
+  - `[x]` Integration tests: `test_delhi_pipeline.py` (3, skip when artifacts absent)
