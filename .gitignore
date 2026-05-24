@@ -30,3 +30,6 @@ src/data/delhi_ncr/
 
 # Visual brainstorming sessions
 .superpowers/
+
+# Internal planning/spec scaffolding (superpowers plugin artifacts)
+docs/superpowers/
