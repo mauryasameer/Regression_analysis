@@ -3,8 +3,7 @@ import pandas as pd
 import statsmodels.api as sm
 from statsmodels.stats.diagnostic import het_breuschpagan
 from statsmodels.stats.outliers_influence import variance_inflation_factor
-from statsmodels.stats.stattools import durbin_watson
-from statsmodels.stats.tools import jarque_bera
+from statsmodels.stats.stattools import durbin_watson, jarque_bera
 
 
 def calculate_vif(df: pd.DataFrame) -> pd.DataFrame:

@@ -19,3 +19,10 @@ ollama>=0.2.0
 # Testing & Code Quality
 pytest>=8.0.0
 ruff==0.15.14
+
+# Delhi NCR Extension
+folium>=0.17.0
+streamlit-folium>=0.22.0
+httpx>=0.27.0
+beautifulsoup4>=4.12.0
+pyyaml>=6.0.0

@@ -1,18 +1,21 @@
 # Secure Housing Valuation Engine 🏠
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](#)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](#)
 
-This repository contains a modernized, production-grade housing valuation application that leverages log-transformed Lasso regularization, **SHAP (SHapley Additive exPlanations)** attributions, and local **Generative AI (Llama 3.1 8B)** to deliver secure, explainable real estate predictions.
+A production-grade real estate ML portal with two prediction experiences:
 
-Originally an experimental research notebook, this project was upgraded to comply with strict software engineering, **Model Risk Management (MRM)**, and **Cybersecurity** standards.
+- **🇺🇸 Ames, Iowa** — log-transformed LassoCV model with SHAP attributions, MRM diagnostics, and local LLM audit narratives
+- **🇮🇳 Delhi NCR** — flat sale price and monthly rent prediction for Gurgaon, Noida, and Delhi, with an interactive Folium map and Buy/Rent toggle
+
+Both models share the same scikit-learn pipeline architecture and Model Risk Management layer. Raw data never leaves the machine.
 
 ---
 
 ## 🏗️ System Architecture
 
-Our end-to-end architecture is structured to prevent data leakage, validate mathematical assumptions, and protect data privacy:
+Both prediction pipelines share the same architecture pattern:
 
 ```
                   ┌────────────────────────────────────────┐
@@ -53,25 +56,57 @@ Our end-to-end architecture is structured to prevent data leakage, validate math
 
 ---
 
-## 🛠️ Core Upgrades
+## 🛠️ Core Features
 
 ### 1. Leak-Proof ML Pipeline
-* Encapsulated categorical filling, derived feature engineering (`BuiltRemodelAge`, `NeworOldGarage`), and standardized scaling inside a scikit-learn `Pipeline` and custom `ColumnTransformer` classes.
-* Statistics (like medians and scale metrics) are calculated *exclusively* on the training set during training, ensuring **zero data leakage** into test folds or inference rows.
-* Utilizes `TransformedTargetRegressor` to automatically manage log-transformation of `SalePrice`.
+* Categorical filling, feature engineering, and scaling encapsulated in a scikit-learn `Pipeline`.
+* Statistics calculated exclusively on training data — zero leakage into test folds or inference rows.
+* `TransformedTargetRegressor` manages log-transformation of targets (`SalePrice` / `price_inr` / `rent_inr`).
 
-### 2. Model Risk Management (MRM) Diagnostics
-To comply with model validation guidelines (such as SR 11-7), the application automatically audits OLS regression assumptions:
-* **Multicollinearity**: Computes Variance Inflation Factors (VIF) on active features.
-* **Autocorrelation**: Computes the Durbin-Watson statistic (achieved **2.03**, representing independent residuals).
-* **Heteroscedasticity**: Performs the Breusch-Pagan test to ensure constant error variance.
-* **Normality of Errors**: Performs the Jarque-Bera test on residuals.
-* **Stability Audit**: Continuous monitoring of train R2 (92.1%) vs test R2 (93.4%) gaps.
+### 2. Delhi NCR Flat Price Predictor
+* **Regions:** Gurgaon, Noida, Delhi (model ready); Faridabad, Ghaziabad (coming soon)
+* **Modes:** Buy (sale price) and Rent (monthly rent) — separate LassoCV models per region per mode
+* **UI:** Layout C — sidebar region list + Folium map with clickable pins + prediction form with Buy/Rent toggle
+* **Features:** BHK, area, floor, age, furnishing, locality, parking, lift, metro distance
 
-### 3. Local-First AI Privacy & Cybersecurity
-* **Data Isolation**: Integrates local LLM execution via **Ollama** using `llama3.1:8b`. Raw transaction data is never uploaded to cloud APIs.
-* **Injection Safeguards**: Text input fields pass through regex-based prompt injection detection.
-* **Output Sanitization**: Responses are filtered to strip HTML script/style tags, blocking Cross-Site Scripting (XSS) in the Streamlit frontend.
+**Trained models and log-space R²:**
+
+| Region | Mode | Train R² | Test R² | Dataset |
+|---|---|---|---|---|
+| Gurgaon | Sale | 0.763 | 0.756 | [goelyash/housing-price-dataset-of-delhiindia](https://www.kaggle.com/datasets/goelyash/housing-price-dataset-of-delhiindia) |
+| Noida | Sale | 0.771 | 0.792 | same |
+| Delhi | Sale | 0.629 | 0.607 | same |
+| Delhi | Rent | 0.663 | 0.653 | [andynath/new-delhi-rental-listings](https://www.kaggle.com/datasets/andynath/new-delhi-rental-listings) |
+| Gurgaon | Rent | — | — | No public rental dataset available |
+| Noida | Rent | — | — | No public rental dataset available |
+
+* **Monthly refresh:** GitHub Actions cron scrapes 99acres, retrains updated regions, opens auto-PR to `dev`
+
+Trained `.joblib` artifacts are committed to `models/delhi_ncr/` and work out of the box. To retrain from source data:
+```bash
+# Sale models — download Delhi_v2.csv from Kaggle:
+# https://www.kaggle.com/datasets/goelyash/housing-price-dataset-of-delhiindia
+# → save to src/data/delhi_ncr/Delhi_v2.csv
+
+# Rent model — download June_8_data_metro_closest_stations.csv from Kaggle:
+# https://www.kaggle.com/datasets/andynath/new-delhi-rental-listings
+# → save to src/data/delhi_ncr/rent_delhi.csv
+
+python scripts/train_delhi_ncr.py
+```
+
+### 3. Model Risk Management (MRM) Diagnostics
+To comply with model validation guidelines (such as SR 11-7), the application audits OLS regression assumptions:
+* **Multicollinearity**: Variance Inflation Factors (VIF)
+* **Autocorrelation**: Durbin-Watson statistic (Ames: **2.03**)
+* **Heteroscedasticity**: Breusch-Pagan test
+* **Normality of Errors**: Jarque-Bera test
+* **Stability Audit**: Train vs test R² gap monitoring
+
+### 4. Local-First AI Privacy & Cybersecurity (Ames tab)
+* **Data Isolation**: Local LLM via **Ollama** (`llama3.1:8b`). No data egress to cloud APIs.
+* **Injection Safeguards**: Regex-based prompt injection detection on all text inputs.
+* **Output Sanitization**: HTML script/style tag stripping to prevent XSS.
 
 ---
 
@@ -81,57 +116,87 @@ To comply with model validation guidelines (such as SR 11-7), the application au
 .
 ├── src/
 │   ├── core/
-│   │   └── interfaces.py       # Decoupled LLMProvider interface
+│   │   └── interfaces.py            # Decoupled LLMProvider interface
 │   ├── providers/
-│   │   └── ollama_provider.py   # Concrete local Ollama provider
+│   │   └── ollama_provider.py       # Concrete local Ollama provider
 │   ├── services/
-│   │   ├── explanation_service.py # Prompt structuring & LLM coordination
-│   │   └── mrm_service.py      # Statistical diagnostic audits
+│   │   ├── explanation_service.py   # Prompt structuring & LLM coordination
+│   │   ├── mrm_service.py           # Statistical diagnostic audits (Ames)
+│   │   └── delhi_mrm_service.py     # MRM re-export for Delhi NCR tab
 │   ├── utils/
-│   │   ├── preprocessing.py    # Custom scikit-learn transformers
-│   │   └── security.py         # Input sanitization and prompt injection checks
-│   └── data/                   # (Git-ignored) Serialized model pipeline & metadata
-├── notebooks/
-│   └── Regression_Analysis.ipynb # Research notebook (modernized with pipeline integration)
+│   │   ├── preprocessing.py         # Custom scikit-learn transformers (Ames)
+│   │   ├── delhi_preprocessing.py   # DelhiFeatureTransformer, DelhiColumnFinalizer
+│   │   └── security.py              # Input sanitization and prompt injection checks
+│   └── data/                        # (Git-ignored) Model pipeline & raw CSVs
+├── models/
+│   └── delhi_ncr/                   # Committed .joblib artifacts (sale + rent per region)
+├── configs/
+│   └── delhi_ncr_regions.yaml       # Region config — drives sidebar, map, model loading
 ├── scripts/
-│   └── train_model.py          # Automated model training and evaluation script
-├── app.py                      # Interactive Streamlit dashboard
-├── pyproject.toml              # Ruff configurations
-├── requirements.txt            # Pinned dependencies
-├── VERSION                     # Version string
-├── CHANGELOG.md                # Semantic release history
-├── task.md                     # Live progress tracker
-└── README.md                   # This document
+│   ├── train_model.py               # Ames Iowa model training
+│   ├── train_delhi_ncr.py           # Delhi NCR per-region sale + rent training
+│   └── scrape_delhi_ncr.py          # 99acres scraper with sha256 deduplication
+├── .github/workflows/
+│   ├── ci.yml                       # Lint + test on Python 3.11 & 3.12
+│   └── delhi_data_refresh.yml       # Monthly cron: scrape → retrain → auto-PR
+├── tests/
+│   ├── unit/
+│   │   ├── test_delhi_preprocessing.py
+│   │   └── test_scraper.py
+│   ├── integration/
+│   │   └── test_delhi_pipeline.py   # Skips when artifacts absent
+│   └── test_data/
+│       └── delhi_fixture.csv
+├── notebooks/
+│   └── Regression_Analysis.ipynb
+├── docs/superpowers/
+│   ├── specs/                       # Design specs
+│   └── plans/                       # Implementation plans
+├── app.py                           # Streamlit dashboard (Ames + Delhi NCR tabs)
+├── pyproject.toml                   # Ruff config
+├── requirements.txt                 # Pinned dependencies
+├── VERSION                          # Version string
+└── CHANGELOG.md                     # Semantic release history
 ```
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Prerequisites
-* Install [Ollama](https://ollama.com/) and run the Llama 3.1 model:
-  ```bash
-  ollama run llama3.1:8b
-  ```
-
-### 2. Installation
-Set up a local virtual environment and install dependencies:
+### 1. Installation
 ```bash
-python3 -m venv venv
+python3.12 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Train the Pipeline
-To compile the leak-proof pipeline, execute CV grid searches, and serialize the model artifacts:
+### 2. Train the Ames Iowa model
 ```bash
 python scripts/train_model.py
 ```
 
-### 4. Run the Streamlit Dashboard
-Launch the interactive web application:
+### 3. Train Delhi NCR models (optional)
+```bash
+# Sale models — download Delhi_v2.csv from Kaggle:
+# https://www.kaggle.com/datasets/goelyash/housing-price-dataset-of-delhiindia
+# → save to src/data/delhi_ncr/Delhi_v2.csv
+
+# Rent model — download June_8_data_metro_closest_stations.csv from Kaggle:
+# https://www.kaggle.com/datasets/andynath/new-delhi-rental-listings
+# → save to src/data/delhi_ncr/rent_delhi.csv
+
+python scripts/train_delhi_ncr.py
+```
+
+### 4. Run the app
 ```bash
 streamlit run app.py
+```
+
+### 5. LLM audit narratives (optional, Ames tab only)
+Install [Ollama](https://ollama.com/) and pull the model:
+```bash
+ollama run llama3.1:8b
 ```
 
 ---

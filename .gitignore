@@ -21,6 +21,15 @@ __pycache__/
 # Runtime data (serialized pipelines, metadata — never committed)
 src/data/
 
+# Delhi NCR training data — never committed
+src/data/delhi_ncr/
+
 # Raw data files — never committed
 *.csv
 *.png
+
+# Visual brainstorming sessions
+.superpowers/
+
+# Internal planning/spec scaffolding (superpowers plugin artifacts)
+docs/superpowers/
