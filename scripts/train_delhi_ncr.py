@@ -224,20 +224,62 @@ def train_region_mode(df: pd.DataFrame, region: str, mode: str, target_col: str)
     logger.info("  Saved artifacts for %s", tag)
 
 
+def prepare_rent_dataset(rent_path: str) -> pd.DataFrame:
+    """Convert andynath/new-delhi-rental-listings CSV to training schema."""
+    df = pd.read_csv(rent_path, encoding="utf-8")
+    logger.info("Rent dataset: %d rows", len(df))
+
+    # Keep Apartments and Independent Floors
+    df = df[df["propertyType"].isin(["Apartment", "Independent Floor"])].copy()
+
+    df["region"] = "Delhi"
+    df["locality"] = df["localityName"].fillna("Unknown")
+    df["bhk"] = df["bedrooms"].fillna(2).astype(int)
+    df["area_sqft"] = df["size_sq_ft"]
+    df["furnishing"] = "Semi-Furnished"
+    df["age_years"] = 5.0
+    df["parking"] = 0
+    df["lift"] = 0
+    df["floor"] = 3
+    df["total_floors"] = 10
+    df["metro_dist_km"] = df["closest_mtero_station_km"].fillna(2.0)
+    df["rent_inr"] = df["price"]
+    df["price_inr"] = np.nan
+
+    keep = ["region", "locality", "bhk", "area_sqft", "floor", "total_floors",
+            "age_years", "furnishing", "parking", "lift", "metro_dist_km",
+            "price_inr", "rent_inr"]
+    df = df[keep].dropna(subset=["rent_inr", "area_sqft"])
+
+    # Cap localities at top 15 and winsorize rent at 99th percentile
+    top = df["locality"].value_counts().head(15).index
+    df.loc[~df["locality"].isin(top), "locality"] = "Other"
+    cap = df["rent_inr"].quantile(0.99)
+    df["rent_inr"] = df["rent_inr"].clip(upper=cap)
+
+    logger.info("Final rent dataset: %d rows", len(df))
+    return df
+
+
 def main(only_updated: bool = False) -> None:
     # Accept either base.csv (pre-processed) or the raw Kaggle file
     base_path = "src/data/delhi_ncr/base.csv"
     raw_path = "src/data/delhi_ncr/Delhi_v2.csv"
+    rent_path = "src/data/delhi_ncr/rent_delhi.csv"
 
     if os.path.exists(base_path):
-        df = pd.read_csv(base_path, encoding="utf-8")
-        logger.info("Loaded %d rows from %s", len(df), base_path)
+        df_sale = pd.read_csv(base_path, encoding="utf-8")
+        logger.info("Loaded %d rows from %s", len(df_sale), base_path)
     elif os.path.exists(raw_path):
         logger.info("base.csv not found — preparing from %s", raw_path)
-        df = prepare_dataset(raw_path)
+        df_sale = prepare_dataset(raw_path)
     else:
-        logger.error("No dataset found. Expected %s or %s", base_path, raw_path)
-        return
+        logger.error("No sale dataset found. Expected %s or %s", base_path, raw_path)
+        df_sale = None
+
+    df_rent = prepare_rent_dataset(rent_path) if os.path.exists(rent_path) else None
+    if df_rent is None:
+        logger.warning("No rent dataset found at %s — skipping rent models", rent_path)
 
     with open("configs/delhi_ncr_regions.yaml") as f:
         config = yaml.safe_load(f)
@@ -255,10 +297,13 @@ def main(only_updated: bool = False) -> None:
             if len(live_df) < 50:
                 logger.info("Skipping %s — fewer than 50 new rows", region)
                 continue
-            df = pd.concat([df, pd.read_csv(live_path)], ignore_index=True)
+            if df_sale is not None:
+                df_sale = pd.concat([df_sale, pd.read_csv(live_path)], ignore_index=True)
 
-        train_region_mode(df, region, "sale", "price_inr")
-        train_region_mode(df, region, "rent", "rent_inr")
+        if df_sale is not None:
+            train_region_mode(df_sale, region, "sale", "price_inr")
+        if df_rent is not None:
+            train_region_mode(df_rent, region, "rent", "rent_inr")
 
 
 if __name__ == "__main__":
