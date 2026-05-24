@@ -527,13 +527,19 @@ with tab_ncr:
             lift = st.checkbox("Lift", value=True)
         metro_dist_km = st.number_input("Metro Distance (km)", min_value=0.0, max_value=20.0, value=1.0, step=0.1)
 
+        if mode_key == "rent":
+            st.info("Rent model not available — the current dataset (Kaggle Delhi_v2) does not include rental listings. Switch to **Buy (Sale Price)** to predict.")
+
         if st.button("Predict Price →", use_container_width=True):
             pipeline, metadata, explainer, loaded = load_delhi_assets(selected_region_name, mode_key)
             if not loaded:
-                st.error(
-                    f"No model found for {selected_region_name} ({mode_key}). "
-                    "Run `python scripts/train_delhi_ncr.py` after downloading the dataset."
-                )
+                if mode_key == "rent":
+                    st.warning("No rent model available for this region. Only sale price predictions are supported with the current dataset.")
+                else:
+                    st.error(
+                        f"No model found for {selected_region_name} ({mode_key}). "
+                        "Run `python scripts/train_delhi_ncr.py` after downloading the dataset."
+                    )
             else:
                 input_df = pd.DataFrame([{
                     "bhk": bhk,
@@ -562,7 +568,7 @@ with tab_ncr:
 
                 # SHAP waterfall
                 prep_pipeline = pipeline.named_steps["prep"]
-                X_prep = prep_pipeline.transform(input_df)
+                X_prep = np.array(prep_pipeline.transform(input_df))
                 shap_values = explainer.shap_values(X_prep)
                 feature_names = metadata["features"]
 
