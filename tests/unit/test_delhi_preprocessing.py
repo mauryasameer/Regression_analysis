@@ -69,6 +69,7 @@ def test_column_finalizer_pads_missing_column(sample_df):
 def test_full_prep_pipeline_returns_array(sample_df):
     from sklearn.pipeline import Pipeline
     from sklearn.preprocessing import StandardScaler
+
     from src.utils.delhi_preprocessing import DelhiColumnFinalizer, DelhiFeatureTransformer
     from src.utils.preprocessing import AligningDummifier
 
