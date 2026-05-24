@@ -65,14 +65,33 @@ Both prediction pipelines share the same architecture pattern:
 
 ### 2. Delhi NCR Flat Price Predictor
 * **Regions:** Gurgaon, Noida, Delhi (model ready); Faridabad, Ghaziabad (coming soon)
-* **Modes:** Buy (sale price in INR) and Rent (monthly rent in INR) — separate LassoCV models per region per mode
+* **Modes:** Buy (sale price) and Rent (monthly rent) — separate LassoCV models per region per mode
 * **UI:** Layout C — sidebar region list + Folium map with clickable pins + prediction form with Buy/Rent toggle
 * **Features:** BHK, area, floor, age, furnishing, locality, parking, lift, metro distance
+
+**Trained models and log-space R²:**
+
+| Region | Mode | Train R² | Test R² | Dataset |
+|---|---|---|---|---|
+| Gurgaon | Sale | 0.763 | 0.756 | [goelyash/housing-price-dataset-of-delhiindia](https://www.kaggle.com/datasets/goelyash/housing-price-dataset-of-delhiindia) |
+| Noida | Sale | 0.771 | 0.792 | same |
+| Delhi | Sale | 0.629 | 0.607 | same |
+| Delhi | Rent | 0.663 | 0.653 | [andynath/new-delhi-rental-listings](https://www.kaggle.com/datasets/andynath/new-delhi-rental-listings) |
+| Gurgaon | Rent | — | — | No public rental dataset available |
+| Noida | Rent | — | — | No public rental dataset available |
+
 * **Monthly refresh:** GitHub Actions cron scrapes 99acres, retrains updated regions, opens auto-PR to `dev`
 
-To activate Delhi NCR predictions:
+Trained `.joblib` artifacts are committed to `models/delhi_ncr/` and work out of the box. To retrain from source data:
 ```bash
-# Download dataset from Kaggle → src/data/delhi_ncr/base.csv, then:
+# Sale models — download Delhi_v2.csv from Kaggle:
+# https://www.kaggle.com/datasets/goelyash/housing-price-dataset-of-delhiindia
+# → save to src/data/delhi_ncr/Delhi_v2.csv
+
+# Rent model — download June_8_data_metro_closest_stations.csv from Kaggle:
+# https://www.kaggle.com/datasets/andynath/new-delhi-rental-listings
+# → save to src/data/delhi_ncr/rent_delhi.csv
+
 python scripts/train_delhi_ncr.py
 ```
 
@@ -157,8 +176,15 @@ python scripts/train_model.py
 ```
 
 ### 3. Train Delhi NCR models (optional)
-Download the [Delhi NCR Housing dataset from Kaggle](https://www.kaggle.com/datasets/goelyash/housing-price-dataset-of-delhincr) and save it to `src/data/delhi_ncr/base.csv`, then:
 ```bash
+# Sale models — download Delhi_v2.csv from Kaggle:
+# https://www.kaggle.com/datasets/goelyash/housing-price-dataset-of-delhiindia
+# → save to src/data/delhi_ncr/Delhi_v2.csv
+
+# Rent model — download June_8_data_metro_closest_stations.csv from Kaggle:
+# https://www.kaggle.com/datasets/andynath/new-delhi-rental-listings
+# → save to src/data/delhi_ncr/rent_delhi.csv
+
 python scripts/train_delhi_ncr.py
 ```
 
