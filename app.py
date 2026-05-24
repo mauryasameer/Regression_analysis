@@ -1,6 +1,7 @@
 import os
 import sys
 
+import folium
 import joblib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,6 +9,8 @@ import pandas as pd
 import seaborn as sns
 import shap
 import streamlit as st
+import yaml
+from streamlit_folium import st_folium
 
 # Configure path to import from src/
 sys.path.append(os.path.dirname(__file__))
@@ -85,6 +88,25 @@ def load_assets():
     metadata = joblib.load("src/data/model_metadata.joblib")
     explainer = joblib.load("src/data/shap_explainer.joblib")
     return pipeline, metadata, explainer
+
+@st.cache_resource
+def load_delhi_assets(region: str, mode: str):
+    base = "models/delhi_ncr"
+    tag = f"{region}_{mode}"
+    try:
+        pipeline = joblib.load(f"{base}/model_{tag}.joblib")
+        metadata = joblib.load(f"{base}/metadata_{tag}.joblib")
+        explainer = joblib.load(f"{base}/shap_{tag}.joblib")
+        return pipeline, metadata, explainer, True
+    except Exception:
+        return None, None, None, False
+
+
+@st.cache_data
+def load_delhi_regions():
+    with open("configs/delhi_ncr_regions.yaml") as f:
+        return yaml.safe_load(f)["regions"]
+
 
 try:
     pipeline, metadata, explainer = load_assets()
@@ -428,4 +450,140 @@ with tab_ames:
         st.info("Please run the training script in your shell to serialize the model artifacts: `venv/bin/python scripts/train_model.py`")
 
 with tab_ncr:
-    st.info("Delhi NCR tab — coming in next task.")
+    regions = load_delhi_regions()
+
+    st.markdown('<p class="sub-header">Delhi NCR Flat Price Predictor — Sale & Rent</p>', unsafe_allow_html=True)
+
+    ncr_col1, ncr_col2, ncr_col3 = st.columns([1, 3, 2])
+
+    # ── Sidebar: Region list ──────────────────────────────────────────────────
+    with ncr_col1:
+        st.markdown("**Select Region**")
+        ready_regions = [r for r in regions if r["model_ready"]]
+        locked_regions = [r for r in regions if not r["model_ready"]]
+
+        region_names = [r["name"] for r in ready_regions]
+        selected_region_name = st.radio(
+            "Available models",
+            options=region_names,
+            label_visibility="collapsed",
+        )
+        if locked_regions:
+            st.markdown("**Coming soon**")
+            for r in locked_regions:
+                st.markdown(f"<span style='color:#475569'>⚫ {r['name']}</span>", unsafe_allow_html=True)
+
+    selected_region = next(r for r in regions if r["name"] == selected_region_name)
+
+    # ── Centre: Folium map ────────────────────────────────────────────────────
+    with ncr_col2:
+        m = folium.Map(location=[28.55, 77.25], zoom_start=10, tiles="CartoDB dark_matter")
+        for r in regions:
+            color = "green" if r["model_ready"] else "gray"
+            tooltip = r["name"] + (" ✓" if r["model_ready"] else " — coming soon")
+            folium.CircleMarker(
+                location=[r["lat"], r["lng"]],
+                radius=10 if r["model_ready"] else 7,
+                color="white",
+                weight=1,
+                fill=True,
+                fill_color=color,
+                fill_opacity=0.9 if r["model_ready"] else 0.4,
+                tooltip=tooltip,
+                popup=folium.Popup(
+                    f"<b>{r['name']}</b><br>{'Model ready ✓' if r['model_ready'] else 'Coming soon'}",
+                    max_width=150,
+                ),
+            ).add_to(m)
+
+        map_result = st_folium(m, height=420, width="100%", returned_objects=["last_object_clicked_tooltip"])
+
+        if map_result and map_result.get("last_object_clicked_tooltip"):
+            clicked_name = map_result["last_object_clicked_tooltip"].replace(" ✓", "").strip()
+            clicked_region = next((r for r in ready_regions if r["name"] == clicked_name), None)
+            if clicked_region:
+                selected_region_name = clicked_region["name"]
+                selected_region = clicked_region
+
+    # ── Right: Prediction form ────────────────────────────────────────────────
+    with ncr_col3:
+        st.markdown(f"**Region: 🟢 {selected_region_name}**")
+
+        mode = st.radio("Mode", ["Buy (Sale Price)", "Rent (Monthly)"], horizontal=True)
+        mode_key = "sale" if "Buy" in mode else "rent"
+
+        localities = selected_region.get("localities", [])
+        locality = st.selectbox("Locality", localities)
+        bhk = st.selectbox("BHK", [1, 2, 3, 4, 5])
+        area_sqft = st.number_input("Area (sq ft)", min_value=200, max_value=10000, value=1200, step=50)
+        floor = st.number_input("Floor", min_value=0, max_value=60, value=5)
+        total_floors = st.number_input("Total Floors", min_value=1, max_value=60, value=15)
+        age_years = st.number_input("Property Age (years)", min_value=0, max_value=50, value=3)
+        furnishing = st.selectbox("Furnishing", ["Furnished", "Semi-Furnished", "Unfurnished"])
+        col_p, col_l = st.columns(2)
+        with col_p:
+            parking = st.checkbox("Parking", value=True)
+        with col_l:
+            lift = st.checkbox("Lift", value=True)
+        metro_dist_km = st.number_input("Metro Distance (km)", min_value=0.0, max_value=20.0, value=1.0, step=0.1)
+
+        if st.button("Predict Price →", use_container_width=True):
+            pipeline, metadata, explainer, loaded = load_delhi_assets(selected_region_name, mode_key)
+            if not loaded:
+                st.error(
+                    f"No model found for {selected_region_name} ({mode_key}). "
+                    "Run `python scripts/train_delhi_ncr.py` after downloading the dataset."
+                )
+            else:
+                input_df = pd.DataFrame([{
+                    "bhk": bhk,
+                    "area_sqft": float(area_sqft),
+                    "floor": int(floor),
+                    "total_floors": int(total_floors),
+                    "age_years": float(age_years),
+                    "furnishing": furnishing,
+                    "locality": locality,
+                    "parking": int(parking),
+                    "lift": int(lift),
+                    "metro_dist_km": float(metro_dist_km),
+                }])
+
+                prediction = pipeline.predict(input_df)[0]
+                label = "Estimated Sale Price" if mode_key == "sale" else "Estimated Monthly Rent"
+                unit = "₹"
+                if prediction >= 10_000_000:
+                    display = f"{unit}{prediction/10_000_000:.2f} Cr"
+                elif prediction >= 100_000:
+                    display = f"{unit}{prediction/100_000:.2f} L"
+                else:
+                    display = f"{unit}{prediction:,.0f}"
+
+                st.success(f"**{label}:** {display}")
+
+                # SHAP waterfall
+                prep_pipeline = pipeline.named_steps["prep"]
+                X_prep = prep_pipeline.transform(input_df)
+                shap_values = explainer.shap_values(X_prep)
+                feature_names = metadata["features"]
+
+                exp_plot = shap.Explanation(
+                    values=np.array(shap_values[0]),
+                    base_values=explainer.expected_value,
+                    data=X_prep[0],
+                    feature_names=feature_names,
+                )
+                fig, _ = plt.subplots(figsize=(7, 4))
+                shap.plots.bar(exp_plot, max_display=8, show=False)
+                plt.title("Feature Attribution (SHAP)", fontsize=10, pad=8)
+                plt.tight_layout()
+                st.pyplot(fig)
+                plt.close(fig)
+
+                # MRM diagnostics
+                with st.expander("Model Risk Diagnostics"):
+                    from src.services.delhi_mrm_service import audit_model_stability
+                    stability = audit_model_stability(
+                        metadata["train_r2"], metadata["test_r2"],
+                        metadata["train_mse"], metadata["test_mse"],
+                    )
+                    st.json(stability)
