@@ -53,6 +53,31 @@ Raw Data (2,919 sales · 80 features)
 
 ---
 
+## Notebook Previews
+
+### Target Distribution — SalePrice
+![SalePrice Distribution](assets/saleprice_distribution.png)
+
+### Feature Correlation Heatmap
+![Correlation Heatmap](assets/correlation_heatmap.png)
+
+### Lasso — Top Feature Importances
+![Lasso Feature Importance](assets/lasso_feature_importance.png)
+
+### Residual Diagnostics (Lasso)
+<table>
+<tr>
+<td><img src="assets/ridge_residuals.png" alt="Ridge Residuals" width="380"/></td>
+<td><img src="assets/lasso_residuals.png" alt="Lasso Residuals" width="380"/></td>
+</tr>
+<tr>
+<td align="center"><em>Ridge — residual distribution</em></td>
+<td align="center"><em>Lasso — residual distribution</em></td>
+</tr>
+</table>
+
+---
+
 ## Key Results
 
 | Model | Best α | Characteristic |

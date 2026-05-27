@@ -28,6 +28,9 @@ src/data/delhi_ncr/
 *.csv
 *.png
 
+# Whitelist README assets
+!assets/*.png
+
 # Visual brainstorming sessions
 .superpowers/
 
